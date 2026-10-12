@@ -10,7 +10,7 @@ Open `index.html` in any modern browser (double-clicking the file works), or
 serve the folder from any static host such as GitHub Pages.
 
 1. Pick a preset (**Daily · 15**, 30, 45 or 60 min) or type any length.
-2. For a daily, list the speakers, one per line (**Shuffle order** mixes them).
+2. For a daily, enter how many people will speak.
 3. Press **Start**. The setup panel hides so the clock fills the screen.
 4. Press **Next speaker** (or `N`) at each handover.
 
@@ -20,15 +20,15 @@ everyone sees the clock and hears the alerts.
 
 ## What it does
 
-- **Speaker turns**: each speaker gets their own countdown, either a fixed
+- **Speaker turns**: each person gets their own countdown, either a fixed
   time or an even share of the meeting before wrap-up. A short beep plays
-  15 seconds before a turn ends and a chime when it's up; the next speaker's
-  name is announced at handover. The row of names shows how long each
-  person took, in red if they went over.
+  15 seconds before a turn ends and a chime when it's up; "Next speaker" is
+  announced at handover. A row of numbered chips shows how long each turn
+  took, in red if it went over.
 - **Wrapping up**: at a set time before the end (default 2 minutes for a
   daily, 5 for longer meetings), or as soon as the last speaker finishes,
-  a distinct sound plays, "Wrapping up" is shown and spoken, and anyone who
-  didn't get a turn is marked as skipped.
+  a distinct sound plays, "Wrapping up" is shown and spoken, and turns that
+  didn't happen are marked as skipped.
 - **Reminders**: at each reminder the timer plays a chime, flashes the screen
   and shows how much time is left. The final reminder chimes the most.
 - **Time's up**: a louder alarm plays and the clock turns red and keeps
