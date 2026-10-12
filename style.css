@@ -179,8 +179,14 @@ body.popout .status { font-size: clamp(0.85rem, 5.5vw, 1.2rem); min-height: 1.3e
 body.popout .queue { display: none; }
 body.popout .controls { gap: 6px; padding: 6px 8px 8px; flex-wrap: nowrap; }
 body.popout .controls button,
-body.popout .controls #next { order: 0; flex-basis: auto; min-width: 0; padding: 5px 10px; font-size: 0.9rem; }
+body.popout .controls #next { order: 0; flex-basis: auto; min-width: 0; padding: 5px 9px; font-size: 0.9rem; white-space: nowrap; }
+/* Too little room for Reset in the small window; R still works. */
+body.popout .controls #reset { display: none; }
 @media (min-height: 340px) {
   body.popout .queue { display: flex; }
   body.popout .queue li { padding: 2px 8px; font-size: 0.8rem; }
 }
+
+/* Windows app compact mode: the app window itself becomes the small window. */
+body.compact .app { max-width: none; height: 100vh; padding: 0; gap: 0; }
+body.compact .bar, body.compact .setup, body.compact .hint, body.compact .popped { display: none; }

@@ -1,0 +1,28 @@
+{
+  "name": "meeting-timer-desktop",
+  "productName": "Meeting Timer",
+  "version": "1.0.0",
+  "description": "Meeting timer with speaker turns, wrap-up notice and an always-on-top compact mode",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "copy-web": "node copy-web.js",
+    "start": "npm run copy-web && electron .",
+    "dist": "npm run copy-web && electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "io.github.theaob.meetingtimer",
+    "productName": "Meeting Timer",
+    "files": ["main.js", "preload.js", "app/**/*"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.png",
+      "artifactName": "MeetingTimer-${version}.exe"
+    }
+  }
+}

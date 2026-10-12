@@ -32,6 +32,7 @@
     popout: $("popout"),
     popped: $("popped"),
     popIn: $("pop-in"),
+    expand: $("expand"),
     clock: document.querySelector(".clock"),
     controls: document.querySelector(".controls"),
     testSound: $("test-sound"),
@@ -591,8 +592,26 @@
     });
   }
 
+  // In the Windows app there is no second window: the app window itself
+  // shrinks to a small always-on-top window and grows back.
+  const desktop = window.desktop || null;
+  let compact = false;
+
+  function setCompact(on) {
+    compact = on;
+    document.body.classList.toggle("popout", on);
+    document.body.classList.toggle("compact", on);
+    els.expand.hidden = !on;
+    desktop.setCompact(on);
+    render();
+  }
+
   async function openPopout() {
     ensureAudio(); // this click counts as the gesture that allows sound later
+    if (desktop) {
+      setCompact(true);
+      return;
+    }
     if (popoutBody()) {
       popout.focus();
       return;
@@ -631,6 +650,10 @@
 
   // Puts the clock back in the main page. Runs when the small window closes.
   function closePopout() {
+    if (desktop) {
+      if (compact) setCompact(false);
+      return;
+    }
     if (!popout) return;
     const win = popout;
     popout = null;
@@ -733,11 +756,14 @@
   els.fullscreen.addEventListener("click", toggleFullscreen);
   // The small window is for laptops and desktops. Phones and tablets would
   // just open another tab, so they don't get the button.
-  const canPopout = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  const canPopout = Boolean(window.desktop) || window.matchMedia("(hover: hover) and (pointer: fine)").matches;
   els.popout.hidden = !canPopout;
   els.popout.addEventListener("click", openPopout);
   els.popIn.addEventListener("click", closePopout);
-  if (!("documentPictureInPicture" in window)) {
+  els.expand.addEventListener("click", closePopout);
+  if (window.desktop) {
+    els.popout.title = "Compact window that stays on top (P)";
+  } else if (!("documentPictureInPicture" in window)) {
     els.popout.title = "Small window (P). Stays on top in Chrome and Edge only.";
   }
 
@@ -774,7 +800,7 @@
     } else if (e.key === "m" || e.key === "M") {
       toggleMute();
     } else if ((e.key === "p" || e.key === "P") && canPopout) {
-      if (popoutBody()) closePopout();
+      if (popoutBody() || compact) closePopout();
       else openPopout();
     }
   }

@@ -54,10 +54,32 @@ Chrome and Edge it floats above every other window, so it stays visible
 while you share your screen or present. Other browsers open it as a normal
 small popup that can end up behind other windows. Close it, or press
 **Bring it back**, to return the clock to the main page. Phones don't show
-the button.
+the button. Reset is hidden in the small window to save room; `R` still works.
 
 When sharing on a call, share a single window (your slides or app) if only
 you should see the timer, or the whole screen if everyone should.
+
+## Windows app
+
+`desktop/` wraps the same page in a small Electron app for Windows. It
+builds a single portable `MeetingTimer-<version>.exe` that needs no install.
+In the app, **⧉** (or `P`) shrinks the window into a compact timer in the
+bottom-right corner that stays above every other window, including
+full-screen slide shows; **⤢** brings it back. The countdown and alerts keep
+running while the window is minimised or covered.
+
+The **Windows app** workflow builds the `.exe` on every push and pull
+request (download it from the run's artifacts) and attaches it to a GitHub
+release when a `v*` tag is pushed. To build it yourself on Windows:
+
+```sh
+cd desktop
+npm ci
+npm run dist   # writes dist/MeetingTimer-<version>.exe
+```
+
+The `.exe` isn't code-signed, so Windows SmartScreen shows a warning the
+first time; choose **More info → Run anyway**.
 
 ## On a phone
 
