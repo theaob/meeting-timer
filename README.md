@@ -46,6 +46,19 @@ browser's built-in speech (they can be turned off). Browsers only allow audio af
 a click or key press, so the sound is unlocked when you press **Start**; use
 **Test sound** to check the room's volume beforehand.
 
+## Small window for meetings
+
+On a laptop or desktop, the **⧉** button (or `P`) moves the clock into a
+small window showing the time left, the reminders and the controls. In
+Chrome and Edge it floats above every other window, so it stays visible
+while you share your screen or present. Other browsers open it as a normal
+small popup that can end up behind other windows. Close it, or press
+**Bring it back**, to return the clock to the main page. Phones don't show
+the button.
+
+When sharing on a call, share a single window (your slides or app) if only
+you should see the timer, or the whole screen if everyone should.
+
 ## On a phone
 
 For face-to-face dailies the timer can run on one phone in the middle of
@@ -71,6 +84,7 @@ button across the bottom of the screen.
 | R     | Reset            |
 | F     | Full screen      |
 | M     | Mute / unmute    |
+| P     | Small window     |
 
 ## Development
 
