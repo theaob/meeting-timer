@@ -20,9 +20,15 @@
       <h1>Meeting Timer</h1>
       <div class="bar-actions">
         <button id="mute" class="icon" type="button" aria-pressed="false" title="Mute sounds (M)">🔊</button>
+        <button id="popout" class="icon" type="button" title="Small window that stays on top (P)" aria-label="Open small window">⧉</button>
         <button id="fullscreen" class="icon" type="button" title="Full screen (F)">⛶</button>
       </div>
     </header>
+
+    <div id="popped" class="popped" hidden>
+      The timer is in a small window.
+      <button id="pop-in" type="button">Bring it back</button>
+    </div>
 
     <section class="clock" aria-live="off">
       <div id="label" class="label">Ready</div>
@@ -38,6 +44,7 @@
       <button id="next" type="button" title="Next speaker (N)" hidden>Next speaker</button>
       <button id="plus" type="button" title="Add one minute">+1 min</button>
       <button id="reset" type="button" title="Reset (R)">Reset</button>
+      <button id="expand" type="button" title="Back to the full window (P)" aria-label="Back to the full window" hidden>⤢</button>
     </section>
 
     <section class="setup" id="setup">
@@ -89,7 +96,7 @@
       </div>
     </section>
 
-    <footer class="hint">Space start/pause · N next speaker · R reset · F full screen · M mute</footer>
+    <footer class="hint">Space start/pause · N next speaker · R reset · P small window · F full screen · M mute</footer>
   </main>
 
   <script src="timer-core.js"></script>

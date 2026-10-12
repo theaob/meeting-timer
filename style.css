@@ -162,3 +162,31 @@ body.active .setup, body.active .hint { display: none; }
   .queue li { padding: 3px 10px; font-size: 0.9rem; }
   .controls button { padding: 8px 14px; font-size: 1rem; }
 }
+
+/* Main page while the timer is popped out into its own small window. */
+.popped { text-align: center; color: var(--muted); padding: 24px 0; display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+
+/* The small pop-out window (picture-in-picture or popup). Its own viewport
+   is tiny, so these override the phone layouts above. */
+body.popout { margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+body.popout .clock { flex: 1; min-height: 0; gap: 2px; padding: 6px 8px 0; }
+body.popout .label { font-size: clamp(0.8rem, 5.5vw, 1.1rem); }
+body.popout.wrapup .label { font-size: clamp(1rem, 7vw, 1.6rem); }
+body.popout .time { font-size: clamp(2rem, min(30vw, 36vh), 12rem); }
+body.popout .progress { height: 6px; }
+body.popout .meeting-line { font-size: clamp(0.75rem, 4.5vw, 1rem); }
+body.popout .status { font-size: clamp(0.85rem, 5.5vw, 1.2rem); min-height: 1.3em; }
+body.popout .queue { display: none; }
+body.popout .controls { gap: 6px; padding: 6px 8px 8px; flex-wrap: nowrap; }
+body.popout .controls button,
+body.popout .controls #next { order: 0; flex-basis: auto; min-width: 0; padding: 5px 9px; font-size: 0.9rem; white-space: nowrap; }
+/* Too little room for Reset in the small window; R still works. */
+body.popout .controls #reset { display: none; }
+@media (min-height: 340px) {
+  body.popout .queue { display: flex; }
+  body.popout .queue li { padding: 2px 8px; font-size: 0.8rem; }
+}
+
+/* Windows app compact mode: the app window itself becomes the small window. */
+body.compact .app { max-width: none; height: 100vh; padding: 0; gap: 0; }
+body.compact .bar, body.compact .setup, body.compact .hint, body.compact .popped { display: none; }

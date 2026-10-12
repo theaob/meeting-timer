@@ -29,6 +29,12 @@
     overtimeBeep: $("overtime-beep"),
     mute: $("mute"),
     fullscreen: $("fullscreen"),
+    popout: $("popout"),
+    popped: $("popped"),
+    popIn: $("pop-in"),
+    expand: $("expand"),
+    clock: document.querySelector(".clock"),
+    controls: document.querySelector(".controls"),
     testSound: $("test-sound"),
     presets: Array.from(document.querySelectorAll(".preset")),
   };
@@ -46,6 +52,7 @@
   let lastOvertimeMinute = 0;
   let tickHandle = null;
   let wakeLock = null;
+  let popout = null; // the small always-on-top window, when open
 
   // ---------- Sound (Web Audio) and voice ----------
 
@@ -410,6 +417,7 @@
   }
 
   function tick() {
+    if (popout && popout.closed) closePopout(); // safety net if pagehide was missed
     if (!timer) return;
     const now = Date.now();
     if (turn) T.poll(turn, now).forEach(handleTurnEvent);
@@ -479,10 +487,13 @@
   }
 
   function flash(strong) {
-    document.body.classList.remove("flash", "strong");
-    void document.body.offsetWidth; // restart the animation
-    document.body.classList.add("flash");
-    if (strong) document.body.classList.add("strong");
+    [document.body, popoutBody()].forEach((body) => {
+      if (!body) return;
+      body.classList.remove("flash", "strong");
+      void body.offsetWidth; // restart the animation
+      body.classList.add("flash");
+      if (strong) body.classList.add("strong");
+    });
   }
 
   // ---------- Rendering ----------
@@ -500,6 +511,7 @@
       els.next.hidden = true;
       els.queue.replaceChildren();
       document.title = "Meeting Timer";
+      syncPopout("Meeting Timer");
       return;
     }
     const now = Date.now();
@@ -536,6 +548,121 @@
     els.plus.title = turn ? "Give the current speaker one more minute" : "Add one minute to the meeting";
     document.title = `${T.format(shown)} · ${turn ? `Speaker ${speakers[current].name}` : meetingName}`;
     renderQueue(now);
+    syncPopout(document.title);
+  }
+
+  // ---------- Small always-on-top window ----------
+  //
+  // Chrome and Edge can open a Document Picture-in-Picture window, which
+  // floats above every other app, so the timer stays visible while sharing
+  // a screen or presenting. Other browsers get an ordinary small popup.
+  // Either way the clock and buttons are moved into it (not copied), so
+  // they keep working, and moved back when it closes.
+
+  const home = { clock: null, controls: null };
+
+  function popoutBody() {
+    return popout && !popout.closed ? popout.document.body : null;
+  }
+
+  function syncPopout(title) {
+    const body = popoutBody();
+    if (!body) return;
+    const flashing = ["flash", "strong"].filter((c) => body.classList.contains(c));
+    body.className = document.body.className;
+    body.classList.add("popout", ...flashing);
+    body.dataset.phase = document.body.dataset.phase;
+    popout.document.title = title;
+  }
+
+  function copyStyles(doc) {
+    [...document.styleSheets].forEach((sheet) => {
+      try {
+        const style = doc.createElement("style");
+        style.textContent = [...sheet.cssRules].map((r) => r.cssText).join("\n");
+        doc.head.append(style);
+      } catch (e) {
+        // Rules not readable (e.g. opened from a file); link the sheet instead.
+        if (!sheet.href) return;
+        const link = doc.createElement("link");
+        link.rel = "stylesheet";
+        link.href = sheet.href;
+        doc.head.append(link);
+      }
+    });
+  }
+
+  // In the Windows app there is no second window: the app window itself
+  // shrinks to a small always-on-top window and grows back.
+  const desktop = window.desktop || null;
+  let compact = false;
+
+  function setCompact(on) {
+    compact = on;
+    document.body.classList.toggle("popout", on);
+    document.body.classList.toggle("compact", on);
+    els.expand.hidden = !on;
+    desktop.setCompact(on);
+    render();
+  }
+
+  async function openPopout() {
+    ensureAudio(); // this click counts as the gesture that allows sound later
+    if (desktop) {
+      setCompact(true);
+      return;
+    }
+    if (popoutBody()) {
+      popout.focus();
+      return;
+    }
+    const size = { width: 340, height: 240 };
+    try {
+      if ("documentPictureInPicture" in window) {
+        popout = await window.documentPictureInPicture.requestWindow(size);
+      } else {
+        popout = window.open("", "meeting-timer-popout", `popup,width=${size.width},height=${size.height}`);
+      }
+    } catch (e) {
+      popout = null;
+    }
+    if (!popout) {
+      setStatus("Allow pop-ups for this page to open the small window");
+      return;
+    }
+    const doc = popout.document;
+    const meta = doc.createElement("meta");
+    meta.name = "viewport";
+    meta.content = "width=device-width, initial-scale=1";
+    doc.head.append(meta);
+    copyStyles(doc);
+
+    home.clock = els.clock.nextSibling;
+    home.controls = els.controls.nextSibling;
+    doc.body.append(els.clock, els.controls);
+    document.body.classList.add("popped-out");
+    els.popped.hidden = false;
+
+    popout.addEventListener("pagehide", closePopout);
+    popout.addEventListener("keydown", onKey);
+    render();
+  }
+
+  // Puts the clock back in the main page. Runs when the small window closes.
+  function closePopout() {
+    if (desktop) {
+      if (compact) setCompact(false);
+      return;
+    }
+    if (!popout) return;
+    const win = popout;
+    popout = null;
+    els.popped.parentNode.insertBefore(els.clock, home.clock);
+    els.popped.parentNode.insertBefore(els.controls, home.controls);
+    document.body.classList.remove("popped-out");
+    els.popped.hidden = true;
+    if (!win.closed) win.close();
+    render();
   }
 
   function renderQueue(now) {
@@ -627,6 +754,18 @@
     say("Wrapping up", 1800);
   });
   els.fullscreen.addEventListener("click", toggleFullscreen);
+  // The small window is for laptops and desktops. Phones and tablets would
+  // just open another tab, so they don't get the button.
+  const canPopout = Boolean(window.desktop) || window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  els.popout.hidden = !canPopout;
+  els.popout.addEventListener("click", openPopout);
+  els.popIn.addEventListener("click", closePopout);
+  els.expand.addEventListener("click", closePopout);
+  if (window.desktop) {
+    els.popout.title = "Compact window that stays on top (P)";
+  } else if (!("documentPictureInPicture" in window)) {
+    els.popout.title = "Small window (P). Stays on top in Chrome and Edge only.";
+  }
 
   function toggleMute() {
     settings.muted = !settings.muted;
@@ -643,11 +782,13 @@
     }
   }
 
-  document.addEventListener("keydown", (e) => {
-    const t = e.target;
-    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || e.metaKey || e.ctrlKey || e.altKey) return;
+  // Shared by the main page and the small window. Checks tag names rather
+  // than instanceof, which fails for elements living in the other window.
+  function onKey(e) {
+    const tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === "Space") {
-      if (t instanceof HTMLButtonElement) return; // the button handles its own Space
+      if (tag === "BUTTON") return; // the button handles its own Space
       e.preventDefault();
       startOrPause();
     } else if (e.key === "n" || e.key === "N" || e.key === "ArrowRight") {
@@ -658,8 +799,13 @@
       toggleFullscreen();
     } else if (e.key === "m" || e.key === "M") {
       toggleMute();
+    } else if ((e.key === "p" || e.key === "P") && canPopout) {
+      if (popoutBody() || compact) closePopout();
+      else openPopout();
     }
-  });
+  }
+
+  document.addEventListener("keydown", onKey);
 
   writeForm();
   render();

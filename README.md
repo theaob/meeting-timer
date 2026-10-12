@@ -46,6 +46,41 @@ browser's built-in speech (they can be turned off). Browsers only allow audio af
 a click or key press, so the sound is unlocked when you press **Start**; use
 **Test sound** to check the room's volume beforehand.
 
+## Small window for meetings
+
+On a laptop or desktop, the **⧉** button (or `P`) moves the clock into a
+small window showing the time left, the reminders and the controls. In
+Chrome and Edge it floats above every other window, so it stays visible
+while you share your screen or present. Other browsers open it as a normal
+small popup that can end up behind other windows. Close it, or press
+**Bring it back**, to return the clock to the main page. Phones don't show
+the button. Reset is hidden in the small window to save room; `R` still works.
+
+When sharing on a call, share a single window (your slides or app) if only
+you should see the timer, or the whole screen if everyone should.
+
+## Windows app
+
+`desktop/` wraps the same page in a small Electron app for Windows. It
+builds a single portable `MeetingTimer-<version>.exe` that needs no install.
+In the app, **⧉** (or `P`) shrinks the window into a compact timer in the
+bottom-right corner that stays above every other window, including
+full-screen slide shows; **⤢** brings it back. The countdown and alerts keep
+running while the window is minimised or covered.
+
+The **Windows app** workflow builds the `.exe` on every push and pull
+request (download it from the run's artifacts) and attaches it to a GitHub
+release when a `v*` tag is pushed. To build it yourself on Windows:
+
+```sh
+cd desktop
+npm ci
+npm run dist   # writes dist/MeetingTimer-<version>.exe
+```
+
+The `.exe` isn't code-signed, so Windows SmartScreen shows a warning the
+first time; choose **More info → Run anyway**.
+
 ## On a phone
 
 For face-to-face dailies the timer can run on one phone in the middle of
@@ -71,6 +106,7 @@ button across the bottom of the screen.
 | R     | Reset            |
 | F     | Full screen      |
 | M     | Mute / unmute    |
+| P     | Small window     |
 
 ## Development
 
