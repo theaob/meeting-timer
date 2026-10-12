@@ -46,6 +46,22 @@ browser's built-in speech (they can be turned off). Browsers only allow audio af
 a click or key press, so the sound is unlocked when you press **Start**; use
 **Test sound** to check the room's volume beforehand.
 
+## On a phone
+
+For face-to-face dailies the timer can run on one phone in the middle of
+the table. Open the link and use "Add to Home Screen" to get an app icon
+that opens full screen. While a daily runs, **Next speaker** becomes a big
+button across the bottom of the screen.
+
+- **iPhone silent switch**: the page asks Safari to treat it as media
+  playback (Safari 17 and later), which should let the alerts sound even
+  when the phone is on silent. Older iOS versions may stay silent, so press
+  **Test sound** once with the switch on to check.
+- **Vibration**: Android phones also vibrate on every alert, even when the
+  timer is muted. iPhones don't let web pages vibrate.
+- **Visual alerts**: the end of a turn, "Wrapping up" and time's up make the
+  whole screen pulse, so they're noticed even without sound.
+
 ## Keyboard
 
 | Key   | Action           |

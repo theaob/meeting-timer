@@ -51,14 +51,67 @@
 
   let audioCtx = null;
 
+  let mediaUnlocked = false;
+
   function ensureAudio() {
+    // On iPhone the ring/silent switch mutes web audio by default. Asking for
+    // a "playback" session (Safari 17+) treats the page like a media player,
+    // which keeps playing when the phone is on silent.
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+    } catch (e) {
+      // Not supported; nothing else to do.
+    }
     if (!audioCtx) {
       const Ctx = window.AudioContext || window.webkitAudioContext;
       if (!Ctx) return null;
       audioCtx = new Ctx();
     }
     if (audioCtx.state === "suspended") audioCtx.resume();
+    unlockMediaChannel();
     return audioCtx;
+  }
+
+  // Older iOS versions: playing an <audio> element once, during a tap, moves
+  // the page onto the media channel so later web audio ignores the switch.
+  function unlockMediaChannel() {
+    if (mediaUnlocked) return;
+    mediaUnlocked = true;
+    try {
+      const el = new Audio(silentWav());
+      el.setAttribute("playsinline", "");
+      const p = el.play();
+      if (p && p.catch) p.catch(() => {});
+    } catch (e) {
+      // Ignore; this is only a fallback.
+    }
+  }
+
+  // A tenth of a second of silence as a WAV data URL.
+  function silentWav() {
+    const rate = 8000;
+    const samples = rate / 10;
+    const buf = new ArrayBuffer(44 + samples);
+    const v = new DataView(buf);
+    const str = (o, t) => [...t].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+    str(0, "RIFF"); v.setUint32(4, 36 + samples, true); str(8, "WAVE");
+    str(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate, true); v.setUint16(32, 1, true); v.setUint16(34, 8, true);
+    str(36, "data"); v.setUint32(40, samples, true);
+    for (let i = 0; i < samples; i++) v.setUint8(44 + i, 128);
+    let bin = "";
+    new Uint8Array(buf).forEach((b) => { bin += String.fromCharCode(b); });
+    return "data:audio/wav;base64," + btoa(bin);
+  }
+
+  // Vibration (Android phones; iPhones don't support it). Works even when
+  // sound is muted, so a phone on the table still buzzes.
+  function vibrate(pattern) {
+    try {
+      if (navigator.vibrate) navigator.vibrate(pattern);
+    } catch (e) {
+      // Not supported.
+    }
   }
 
   // Plays a list of [frequencyHz, startOffsetSec, durationSec] notes.
@@ -85,6 +138,7 @@
   const sounds = {
     // Gentle rising chime; more notes as the end gets closer.
     reminder(count) {
+      vibrate(Array(count).fill([200, 150]).flat());
       const notes = [];
       for (let i = 0; i < count; i++) {
         notes.push([660, i * 0.45, 0.3], [880, i * 0.45 + 0.15, 0.35]);
@@ -93,6 +147,7 @@
     },
     // Falling three-note figure, played twice: "wrap-ping up".
     wrapUp() {
+      vibrate([400, 200, 400]);
       const notes = [];
       for (let i = 0; i < 2; i++) {
         const o = i * 0.9;
@@ -102,6 +157,7 @@
     },
     // Insistent alarm, roughly three seconds long.
     end() {
+      vibrate([600, 200, 600, 200, 600]);
       const notes = [];
       for (let i = 0; i < 6; i++) {
         notes.push([988, i * 0.5, 0.18], [784, i * 0.5 + 0.2, 0.18]);
@@ -109,15 +165,19 @@
       playNotes(notes, 0.5);
     },
     overtime() {
+      vibrate([300]);
       playNotes([[440, 0, 0.25], [330, 0.3, 0.4]], 0.35);
     },
     handover() {
+      vibrate([80]);
       playNotes([[523, 0, 0.2], [784, 0.15, 0.35]], 0.3);
     },
     speakerWarning() {
+      vibrate([100]);
       playNotes([[880, 0, 0.12]], 0.25);
     },
     speakerEnd() {
+      vibrate([250, 120, 250]);
       playNotes([[587, 0, 0.2], [587, 0.3, 0.3]], 0.35);
     },
   };
@@ -308,7 +368,7 @@
     sounds.wrapUp();
     say("Wrapping up", 1800);
     setStatus(reason === "after last speaker" ? "Everyone has spoken" : "");
-    flash();
+    flash(true);
   }
 
   function reset() {
@@ -375,7 +435,7 @@
     } else if (ev.type === "end") {
       sounds.speakerEnd();
       setStatus(`Speaker ${name}, your time is up`);
-      flash();
+      flash(true);
     }
   }
 
@@ -405,7 +465,7 @@
       sounds.end();
       say("Time's up", 3200);
       setStatus("Time's up!");
-      flash();
+      flash(true);
     }
   }
 
@@ -418,10 +478,11 @@
     els.status.textContent = text;
   }
 
-  function flash() {
-    document.body.classList.remove("flash");
+  function flash(strong) {
+    document.body.classList.remove("flash", "strong");
     void document.body.offsetWidth; // restart the animation
     document.body.classList.add("flash");
+    if (strong) document.body.classList.add("strong");
   }
 
   // ---------- Rendering ----------

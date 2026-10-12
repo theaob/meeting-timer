@@ -30,9 +30,16 @@ body[data-phase="critical"] { --phase: var(--critical); }
 body[data-phase="over"] { --phase: var(--over); }
 body.meeting-over { background: #2a0f12; }
 body.flash { animation: flash 0.5s ease-out 3; }
+/* Turn ends, wrap-up and time's up pulse harder, so they're noticed even
+   when the phone is on silent. */
+body.flash.strong { animation: flash-strong 0.7s ease-out 4; }
 
 @keyframes flash {
   0% { background: color-mix(in srgb, var(--phase) 40%, var(--bg)); }
+  100% { background: var(--bg); }
+}
+@keyframes flash-strong {
+  0% { background: color-mix(in srgb, var(--phase) 75%, var(--bg)); }
   100% { background: var(--bg); }
 }
 
@@ -41,6 +48,8 @@ body.flash { animation: flash 0.5s ease-out 3; }
   max-width: 960px;
   margin: 0 auto;
   padding: 16px;
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -68,7 +77,8 @@ button.link { background: none; border: none; color: var(--muted); text-decorati
 .clock { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
 .label { font-size: clamp(1rem, 3vw, 1.6rem); color: var(--muted); }
 .time {
-  font-size: clamp(5rem, 24vw, 18rem);
+  /* Fit the width on phones in portrait and the height in landscape. */
+  font-size: clamp(4rem, min(24vw, 40vh), 18rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   line-height: 1;
@@ -134,9 +144,21 @@ body.wrapup .label {
 body.active .setup, body.active .hint { display: none; }
 
 @media (max-width: 520px) {
+  /* On a phone the next-speaker tap is the main action, so make it big. */
+  .controls #next { order: -1; flex-basis: 100%; padding: 18px; font-size: 1.3rem; }
   .controls { gap: 8px; }
   .controls button { padding: 10px 14px; }
   button.primary { min-width: 110px; }
   .fields input[type="number"], .fields input[type="text"] { width: 100%; }
   .fields label { width: 100%; }
+}
+
+/* Phones in landscape: tighten everything so the running timer fits. */
+@media (max-height: 500px) {
+  .app { gap: 8px; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+  body.active .bar { display: none; }
+  .clock { gap: 4px; }
+  .time { font-size: clamp(3rem, 34vh, 18rem); }
+  .queue li { padding: 3px 10px; font-size: 0.9rem; }
+  .controls button { padding: 8px 14px; font-size: 1rem; }
 }
