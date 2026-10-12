@@ -118,8 +118,26 @@
       .filter((n) => Number.isFinite(n) && n > 0);
   }
 
+  // Even share of the meeting for each speaker, leaving the wrap-up time
+  // free. Rounded down to 15 seconds so the numbers read cleanly.
+  function splitSpeakerTime(durationMs, wrapUpMs, speakerCount) {
+    if (speakerCount <= 0) return 0;
+    const step = 15 * 1000;
+    const share = (durationMs - Math.max(0, wrapUpMs)) / speakerCount;
+    return Math.max(step, Math.floor(share / step) * step);
+  }
+
+  function parseNames(text) {
+    return String(text)
+      .split(/[\n,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
   return {
     MINUTE,
+    splitSpeakerTime,
+    parseNames,
     createTimer,
     isRunning,
     elapsed,

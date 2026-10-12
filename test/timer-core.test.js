@@ -82,3 +82,25 @@ test("parseReminderList accepts commas and spaces", () => {
   assert.deepEqual(T.parseReminderList("10 5;2 0.5"), [10, 5, 2, 0.5]);
   assert.deepEqual(T.parseReminderList(""), []);
 });
+
+test("splitSpeakerTime shares the time before wrap-up evenly", () => {
+  // 15 min daily, 2 min wrap-up, 6 people -> 13 min / 6 = 2:10, rounded down to 2:00
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 6), 2 * MIN);
+  // 15 min, 2 min wrap-up, 4 people -> 3:15
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 4), 3.25 * MIN);
+  // never below 15 seconds, and 0 with nobody
+  assert.equal(T.splitSpeakerTime(1 * MIN, 0, 100), 15_000);
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 0), 0);
+});
+
+test("parseNames accepts one name per line or commas", () => {
+  assert.deepEqual(T.parseNames("Ayse\n Bora \n\nCan, Deniz"), ["Ayse", "Bora", "Can", "Deniz"]);
+  assert.deepEqual(T.parseNames("  "), []);
+});
+
+test("a speaker turn warns 15 seconds before it ends", () => {
+  const t = T.createTimer(2 * MIN, [0.25]);
+  T.start(t, 0);
+  assert.deepEqual(T.poll(t, 105_000), [{ type: "reminder", msLeft: 15_000 }]);
+  assert.deepEqual(T.poll(t, 2 * MIN), [{ type: "end" }]);
+});

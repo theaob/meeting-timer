@@ -20,28 +20,61 @@
       <div id="label" class="label">Ready</div>
       <div id="time" class="time">15:00</div>
       <div class="progress" aria-hidden="true"><div id="progress-fill"></div></div>
+      <div id="meeting-line" class="meeting-line"></div>
       <div id="status" class="status" role="status" aria-live="polite"></div>
+      <ol id="queue" class="queue" aria-label="Speakers"></ol>
     </section>
 
     <section class="controls">
       <button id="start" class="primary" type="button">Start</button>
+      <button id="next" type="button" title="Next speaker (N)" hidden>Next speaker</button>
       <button id="plus" type="button" title="Add one minute">+1 min</button>
       <button id="reset" type="button" title="Reset (R)">Reset</button>
     </section>
 
     <section class="setup" id="setup">
       <div class="presets" role="group" aria-label="Meeting length">
-        <button type="button" class="preset" data-minutes="15" data-name="Daily standup">Daily · 15</button>
-        <button type="button" class="preset" data-minutes="30" data-name="Meeting">30 min</button>
-        <button type="button" class="preset" data-minutes="45" data-name="Meeting">45 min</button>
-        <button type="button" class="preset" data-minutes="60" data-name="Meeting">60 min</button>
+        <button type="button" class="preset" data-minutes="15" data-name="Daily standup" data-wrapup="2" data-speakers="true">Daily · 15</button>
+        <button type="button" class="preset" data-minutes="30" data-name="Meeting" data-wrapup="5" data-speakers="false">30 min</button>
+        <button type="button" class="preset" data-minutes="45" data-name="Meeting" data-wrapup="5" data-speakers="false">45 min</button>
+        <button type="button" class="preset" data-minutes="60" data-name="Meeting" data-wrapup="5" data-speakers="false">60 min</button>
       </div>
+
       <div class="fields">
         <label>Length (minutes)
           <input id="minutes" type="number" min="1" max="600" step="1" value="15" inputmode="numeric">
         </label>
-        <label>Remind at (minutes left)
+        <label>"Wrapping up" at (minutes left)
+          <input id="wrapup" type="number" min="0" max="60" step="0.5" value="2" inputmode="decimal">
+        </label>
+        <label>Other reminders (minutes left)
           <input id="reminders" type="text" value="5, 1" placeholder="5, 1" inputmode="decimal">
+        </label>
+      </div>
+
+      <div class="speakers">
+        <label class="check">
+          <input id="use-speakers" type="checkbox" checked>
+          Speaker turns
+        </label>
+        <div id="speaker-fields" class="fields">
+          <label class="grow">Speakers (one per line)
+            <textarea id="speakers" rows="4" placeholder="Ayşe&#10;Bora&#10;Can"></textarea>
+          </label>
+          <div class="speaker-side">
+            <label>Per speaker (minutes)
+              <input id="per-speaker" type="number" min="0.25" max="60" step="0.25" placeholder="auto" inputmode="decimal">
+            </label>
+            <div id="per-speaker-hint" class="hint-inline"></div>
+            <button id="shuffle" type="button">Shuffle order</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fields">
+        <label class="check">
+          <input id="voice" type="checkbox" checked>
+          Spoken announcements
         </label>
         <label class="check">
           <input id="overtime-beep" type="checkbox" checked>
@@ -51,7 +84,7 @@
       </div>
     </section>
 
-    <footer class="hint">Space start/pause · R reset · F full screen · M mute</footer>
+    <footer class="hint">Space start/pause · N next speaker · R reset · F full screen · M mute</footer>
   </main>
 
   <script src="timer-core.js"></script>

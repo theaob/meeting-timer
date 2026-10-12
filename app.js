@@ -4,17 +4,29 @@
   const T = window.TimerCore;
   const $ = (id) => document.getElementById(id);
   const STORAGE_KEY = "meeting-timer-settings";
+  const SPEAKER_WARNING_MIN = 0.25; // beep 15 seconds before a turn ends
 
   const els = {
     time: $("time"),
     label: $("label"),
+    meetingLine: $("meeting-line"),
     status: $("status"),
+    queue: $("queue"),
     fill: $("progress-fill"),
     start: $("start"),
+    next: $("next"),
     plus: $("plus"),
     reset: $("reset"),
     minutes: $("minutes"),
+    wrapup: $("wrapup"),
     reminders: $("reminders"),
+    useSpeakers: $("use-speakers"),
+    speakerFields: $("speaker-fields"),
+    speakers: $("speakers"),
+    perSpeaker: $("per-speaker"),
+    perSpeakerHint: $("per-speaker-hint"),
+    shuffle: $("shuffle"),
+    voice: $("voice"),
     overtimeBeep: $("overtime-beep"),
     mute: $("mute"),
     fullscreen: $("fullscreen"),
@@ -23,13 +35,20 @@
   };
 
   let settings = loadSettings();
-  let timer = null; // null until a meeting is started
+
+  // Meeting state; `timer` is null until a meeting is started.
+  let timer = null;
   let meetingName = "Meeting";
+  let wrapUpMs = 0;
+  let stage = "open"; // "speakers" | "wrapup" | "open" (no speaker turns)
+  let speakers = []; // { name, status: pending|current|done|skipped, ms, over }
+  let current = -1;
+  let turn = null; // timer for the current speaker
   let lastOvertimeMinute = 0;
   let tickHandle = null;
   let wakeLock = null;
 
-  // ---------- Sound (Web Audio) ----------
+  // ---------- Sound (Web Audio) and voice ----------
 
   let audioCtx = null;
 
@@ -73,6 +92,15 @@
       }
       playNotes(notes, 0.35);
     },
+    // Falling three-note figure, played twice: "wrap-ping up".
+    wrapUp() {
+      const notes = [];
+      for (let i = 0; i < 2; i++) {
+        const o = i * 0.9;
+        notes.push([784, o, 0.25], [659, o + 0.25, 0.25], [523, o + 0.5, 0.4]);
+      }
+      playNotes(notes, 0.45);
+    },
     // Insistent alarm, roughly three seconds long.
     end() {
       const notes = [];
@@ -84,12 +112,48 @@
     overtime() {
       playNotes([[440, 0, 0.25], [330, 0.3, 0.4]], 0.35);
     },
+    handover() {
+      playNotes([[523, 0, 0.2], [784, 0.15, 0.35]], 0.3);
+    },
+    speakerWarning() {
+      playNotes([[880, 0, 0.12]], 0.25);
+    },
+    speakerEnd() {
+      playNotes([[587, 0, 0.2], [587, 0.3, 0.3]], 0.35);
+    },
   };
+
+  // Spoken announcements, so people on a call hear what changed. Waits a
+  // moment so the words don't talk over the chime.
+  function say(text, delayMs) {
+    if (settings.muted || !settings.voice || !("speechSynthesis" in window)) return;
+    setTimeout(() => {
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1;
+        window.speechSynthesis.speak(u);
+      } catch (e) {
+        // Speech not available; the sounds and screen still carry the message.
+      }
+    }, delayMs || 0);
+  }
 
   // ---------- Settings ----------
 
   function loadSettings() {
-    const defaults = { minutes: 15, reminders: "5, 1", overtimeBeep: true, muted: false, name: "Daily standup" };
+    const defaults = {
+      minutes: 15,
+      wrapUp: 2,
+      reminders: "5, 1",
+      useSpeakers: true,
+      speakers: "",
+      perSpeaker: "",
+      voice: true,
+      overtimeBeep: true,
+      muted: false,
+      name: "Daily standup",
+    };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       return Object.assign(defaults, saved || {});
@@ -107,25 +171,45 @@
   }
 
   function readForm() {
-    const minutes = Math.min(600, Math.max(1, Math.round(Number(els.minutes.value) || 15)));
-    settings.minutes = minutes;
+    settings.minutes = Math.min(600, Math.max(1, Math.round(Number(els.minutes.value) || 15)));
+    settings.wrapUp = Math.max(0, Number(els.wrapup.value) || 0);
     settings.reminders = els.reminders.value;
+    settings.useSpeakers = els.useSpeakers.checked;
+    settings.speakers = els.speakers.value;
+    settings.perSpeaker = els.perSpeaker.value;
+    settings.voice = els.voice.checked;
     settings.overtimeBeep = els.overtimeBeep.checked;
     saveSettings();
   }
 
   function writeForm() {
     els.minutes.value = settings.minutes;
+    els.wrapup.value = settings.wrapUp;
     els.reminders.value = settings.reminders;
+    els.useSpeakers.checked = settings.useSpeakers;
+    els.speakers.value = settings.speakers;
+    els.perSpeaker.value = settings.perSpeaker;
+    els.voice.checked = settings.voice;
     els.overtimeBeep.checked = settings.overtimeBeep;
     renderMute();
-    renderPresets();
+    renderSetup();
   }
 
-  function renderPresets() {
+  function renderSetup() {
     els.presets.forEach((b) => {
       b.setAttribute("aria-pressed", String(Number(b.dataset.minutes) === Number(settings.minutes)));
     });
+    els.speakerFields.hidden = !settings.useSpeakers;
+    const count = T.parseNames(settings.speakers).length;
+    if (!count) {
+      els.perSpeakerHint.textContent = "Add names to time each speaker";
+    } else if (settings.perSpeaker) {
+      const total = count * Number(settings.perSpeaker);
+      els.perSpeakerHint.textContent = `${count} speakers · ${formatMinutes(total)} in total`;
+    } else {
+      const ms = T.splitSpeakerTime(settings.minutes * T.MINUTE, settings.wrapUp * T.MINUTE, count);
+      els.perSpeakerHint.textContent = `${count} speakers · auto ${T.format(ms)} each`;
+    }
   }
 
   function renderMute() {
@@ -134,49 +218,132 @@
     els.mute.title = settings.muted ? "Unmute sounds (M)" : "Mute sounds (M)";
   }
 
+  function speakerMs() {
+    const fixed = Number(settings.perSpeaker);
+    if (fixed > 0) return Math.round(fixed * T.MINUTE);
+    return T.splitSpeakerTime(settings.minutes * T.MINUTE, wrapUpMs, speakers.length);
+  }
+
   // ---------- Timer control ----------
+
+  function begin() {
+    readForm();
+    const durationMs = settings.minutes * T.MINUTE;
+    wrapUpMs = settings.wrapUp > 0 && settings.wrapUp * T.MINUTE < durationMs ? Math.round(settings.wrapUp * T.MINUTE) : 0;
+    const reminderMinutes = T.parseReminderList(settings.reminders);
+    if (wrapUpMs) reminderMinutes.push(wrapUpMs / T.MINUTE);
+    timer = T.createTimer(durationMs, reminderMinutes);
+    meetingName = settings.name || "Meeting";
+    lastOvertimeMinute = 0;
+    setStatus("");
+
+    const names = settings.useSpeakers ? T.parseNames(settings.speakers) : [];
+    speakers = names.map((name) => ({ name, status: "pending", ms: 0, over: false }));
+    current = -1;
+    turn = null;
+    stage = speakers.length ? "speakers" : "open";
+    if (stage === "speakers") nextSpeaker({ quiet: true });
+  }
 
   function startOrPause() {
     ensureAudio(); // must happen inside a user gesture for browsers to allow sound
     const now = Date.now();
-    if (!timer) {
-      readForm();
-      const reminderMinutes = T.parseReminderList(settings.reminders);
-      timer = T.createTimer(settings.minutes * T.MINUTE, reminderMinutes);
-      meetingName = settings.name || "Meeting";
-      lastOvertimeMinute = 0;
-      setStatus("");
-    }
+    if (!timer) begin();
     if (T.isRunning(timer)) {
       T.pause(timer, now);
+      if (turn) T.pause(turn, now);
       releaseWakeLock();
     } else {
       T.start(timer, now);
+      if (turn) T.start(turn, now);
       requestWakeLock();
     }
     render();
     scheduleTick();
   }
 
+  function finishTurn(now) {
+    if (current < 0 || !turn) return;
+    const s = speakers[current];
+    s.ms = T.elapsed(turn, now);
+    s.over = T.remaining(turn, now) < 0;
+    s.status = "done";
+    turn = null;
+  }
+
+  // Hands over to the next speaker, or moves to wrap-up after the last one.
+  function nextSpeaker(opts) {
+    if (!timer || stage !== "speakers") return;
+    const now = Date.now();
+    finishTurn(now);
+    current += 1;
+    if (current >= speakers.length) {
+      current = -1;
+      enterWrapUp("after last speaker");
+      render();
+      return;
+    }
+    const s = speakers[current];
+    s.status = "current";
+    turn = T.createTimer(speakerMs(), [SPEAKER_WARNING_MIN]);
+    if (T.isRunning(timer)) T.start(turn, now);
+    if (!(opts && opts.quiet)) {
+      sounds.handover();
+      say(s.name, 400);
+      setStatus("");
+    }
+    render();
+  }
+
+  function enterWrapUp(reason) {
+    if (stage === "wrapup") return;
+    const now = Date.now();
+    if (stage === "speakers") {
+      finishTurn(now);
+      speakers.forEach((s) => {
+        if (s.status === "pending") s.status = "skipped";
+      });
+      current = -1;
+    }
+    stage = "wrapup";
+    // Don't let the scheduled wrap-up reminder announce it a second time.
+    if (wrapUpMs && !timer.fired.includes(wrapUpMs)) timer.fired.push(wrapUpMs);
+    sounds.wrapUp();
+    say("Wrapping up", 1800);
+    setStatus(reason === "after last speaker" ? "Everyone has spoken" : "");
+    flash();
+  }
+
   function reset() {
     timer = null;
+    turn = null;
+    speakers = [];
+    current = -1;
+    stage = "open";
     releaseWakeLock();
     setStatus("");
     render();
   }
 
   function addMinute() {
+    const now = Date.now();
     if (!timer) {
       els.minutes.value = Number(els.minutes.value || 0) + 1;
       readForm();
       settings.name = "Meeting";
-      renderPresets();
+      saveSettings();
+      renderSetup();
       render();
       return;
     }
-    T.addTime(timer, T.MINUTE, Date.now());
-    if (T.remaining(timer, Date.now()) > 0) lastOvertimeMinute = 0;
-    setStatus("+1 minute added");
+    if (turn) {
+      T.addTime(turn, T.MINUTE, now);
+      setStatus(`+1 minute for ${speakers[current].name}`);
+    } else {
+      T.addTime(timer, T.MINUTE, now);
+      if (T.remaining(timer, now) > 0) lastOvertimeMinute = 0;
+      setStatus("+1 minute added");
+    }
     render();
   }
 
@@ -188,7 +355,8 @@
   function tick() {
     if (!timer) return;
     const now = Date.now();
-    T.poll(timer, now).forEach(handleEvent);
+    if (turn) T.poll(turn, now).forEach(handleTurnEvent);
+    T.poll(timer, now).forEach(handleMeetingEvent);
 
     const left = T.remaining(timer, now);
     if (left <= 0 && T.isRunning(timer) && settings.overtimeBeep) {
@@ -196,24 +364,49 @@
       if (overMinute > lastOvertimeMinute) {
         lastOvertimeMinute = overMinute;
         sounds.overtime();
-        setStatus(`Over time by ${overMinute} min — please wrap up`);
+        setStatus(`Over time by ${overMinute} min, please finish`);
       }
     }
     render();
   }
 
-  function handleEvent(ev) {
+  function handleTurnEvent(ev) {
+    const name = speakers[current] ? speakers[current].name : "";
     if (ev.type === "reminder") {
+      sounds.speakerWarning();
+      setStatus("15 seconds left");
+    } else if (ev.type === "end") {
+      sounds.speakerEnd();
+      setStatus(`${name}, your time is up`);
+      flash();
+    }
+  }
+
+  function handleMeetingEvent(ev) {
+    if (ev.type === "reminder") {
+      if (ev.msLeft === wrapUpMs) {
+        enterWrapUp("scheduled");
+        return;
+      }
       const mins = ev.msLeft / T.MINUTE;
       const text = mins >= 1 ? `${formatMinutes(mins)} left` : `${Math.round(mins * 60)} seconds left`;
       // Final reminder gets three chimes, the one before two, earlier ones one.
       const index = timer.reminders.indexOf(ev.msLeft);
       const fromEnd = timer.reminders.length - 1 - index;
       sounds.reminder(Math.max(1, 3 - fromEnd));
-      setStatus(text);
+      setStatus(`Meeting: ${text}`);
       flash();
     } else if (ev.type === "end") {
+      if (stage !== "wrapup") {
+        finishTurn(Date.now());
+        speakers.forEach((s) => {
+          if (s.status === "pending") s.status = "skipped";
+        });
+        current = -1;
+        stage = "wrapup";
+      }
       sounds.end();
+      say("Time's up", 3200);
       setStatus("Time's up!");
       flash();
     }
@@ -240,26 +433,74 @@
     const body = document.body;
     if (!timer) {
       body.dataset.phase = "idle";
-      body.classList.remove("active", "running");
+      body.classList.remove("active", "running", "wrapup", "meeting-over");
       els.time.textContent = T.format(Number(els.minutes.value || settings.minutes) * T.MINUTE);
       els.label.textContent = settings.name || "Meeting";
+      els.meetingLine.textContent = "";
       els.fill.style.width = "0%";
       els.start.textContent = "Start";
+      els.next.hidden = true;
+      els.queue.replaceChildren();
       document.title = "Meeting Timer";
       return;
     }
     const now = Date.now();
-    const left = T.remaining(timer, now);
     const running = T.isRunning(timer);
-    body.dataset.phase = T.phase(timer, now);
+    const meetingLeft = T.remaining(timer, now);
+    const meetingPhase = T.phase(timer, now);
     body.classList.add("active");
     body.classList.toggle("running", running);
-    els.time.textContent = T.format(left);
-    els.label.textContent = running ? meetingName : `${meetingName} · paused`;
-    const pct = Math.min(100, (T.elapsed(timer, now) / timer.durationMs) * 100);
-    els.fill.style.width = `${pct}%`;
+    body.classList.toggle("wrapup", stage === "wrapup" && meetingPhase !== "over");
+    body.classList.toggle("meeting-over", meetingPhase === "over");
+
+    let shown, pct, label;
+    if (turn) {
+      const s = speakers[current];
+      shown = T.remaining(turn, now);
+      pct = (T.elapsed(turn, now) / turn.durationMs) * 100;
+      label = `${s.name} · ${current + 1} of ${speakers.length}`;
+      body.dataset.phase = meetingPhase === "over" ? "over" : T.phase(turn, now);
+      els.meetingLine.textContent = `${meetingName} · ${T.format(meetingLeft)} ${meetingLeft < 0 ? "over" : "left"}`;
+    } else {
+      shown = meetingLeft;
+      pct = (T.elapsed(timer, now) / timer.durationMs) * 100;
+      label = stage === "wrapup" && meetingPhase !== "over" ? "Wrapping up" : meetingName;
+      body.dataset.phase = meetingPhase;
+      els.meetingLine.textContent = "";
+    }
+    if (!running) label += " · paused";
+    els.label.textContent = label;
+    els.time.textContent = T.format(shown);
+    els.fill.style.width = `${Math.min(100, pct)}%`;
     els.start.textContent = running ? "Pause" : "Resume";
-    document.title = `${T.format(left)} · ${meetingName}`;
+    els.next.hidden = stage !== "speakers";
+    els.next.textContent = current === speakers.length - 1 ? "Finish turns" : "Next speaker";
+    els.plus.title = turn ? "Give the current speaker one more minute" : "Add one minute to the meeting";
+    document.title = `${T.format(shown)} · ${turn ? speakers[current].name : meetingName}`;
+    renderQueue(now);
+  }
+
+  function renderQueue(now) {
+    const items = speakers.map((s, i) => {
+      const li = document.createElement("li");
+      li.className = s.status + (s.over ? " over" : "");
+      const name = document.createElement("span");
+      name.textContent = s.name;
+      li.append(name);
+      if (s.status === "done") {
+        const t = document.createElement("span");
+        t.className = "took";
+        t.textContent = T.format(s.ms).replace("+", "");
+        li.append(t);
+        li.title = s.over ? "Went over their time" : "Finished on time";
+      } else if (s.status === "skipped") {
+        li.title = "Didn't get a turn";
+      } else if (i === current) {
+        li.setAttribute("aria-current", "true");
+      }
+      return li;
+    });
+    els.queue.replaceChildren(...items);
   }
 
   // ---------- Screen wake lock (keeps meeting-room screens on) ----------
@@ -287,38 +528,60 @@
   // ---------- Wiring ----------
 
   els.start.addEventListener("click", startOrPause);
+  els.next.addEventListener("click", () => nextSpeaker());
   els.reset.addEventListener("click", reset);
   els.plus.addEventListener("click", addMinute);
 
   els.presets.forEach((b) => {
     b.addEventListener("click", () => {
       els.minutes.value = b.dataset.minutes;
-      settings.name = b.dataset.name;
+      els.wrapup.value = b.dataset.wrapup;
+      els.useSpeakers.checked = b.dataset.speakers === "true";
       readForm();
-      renderPresets();
+      settings.name = b.dataset.name;
+      saveSettings();
+      renderSetup();
       render();
     });
   });
+
+  function onFormChange() {
+    readForm();
+    renderSetup();
+    render();
+  }
 
   els.minutes.addEventListener("input", () => {
     readForm();
     settings.name = Number(settings.minutes) === 15 ? "Daily standup" : "Meeting";
     saveSettings();
-    renderPresets();
+    renderSetup();
     render();
   });
-  els.reminders.addEventListener("change", readForm);
-  els.overtimeBeep.addEventListener("change", readForm);
+  [els.wrapup, els.speakers, els.perSpeaker].forEach((el) => el.addEventListener("input", onFormChange));
+  [els.reminders, els.useSpeakers, els.voice, els.overtimeBeep].forEach((el) => el.addEventListener("change", onFormChange));
+
+  els.shuffle.addEventListener("click", () => {
+    const names = T.parseNames(els.speakers.value);
+    for (let i = names.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [names[i], names[j]] = [names[j], names[i]];
+    }
+    els.speakers.value = names.join("\n");
+    onFormChange();
+  });
 
   els.mute.addEventListener("click", toggleMute);
   els.testSound.addEventListener("click", () => {
     ensureAudio();
-    sounds.reminder(1);
+    sounds.wrapUp();
+    say("Wrapping up", 1800);
   });
   els.fullscreen.addEventListener("click", toggleFullscreen);
 
   function toggleMute() {
     settings.muted = !settings.muted;
+    if (settings.muted && "speechSynthesis" in window) window.speechSynthesis.cancel();
     saveSettings();
     renderMute();
   }
@@ -332,11 +595,14 @@
   }
 
   document.addEventListener("keydown", (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target;
+    if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.code === "Space") {
-      if (e.target instanceof HTMLButtonElement) return; // the button handles its own Space
+      if (t instanceof HTMLButtonElement) return; // the button handles its own Space
       e.preventDefault();
       startOrPause();
+    } else if (e.key === "n" || e.key === "N" || e.key === "ArrowRight") {
+      nextSpeaker();
     } else if (e.key === "r" || e.key === "R") {
       reset();
     } else if (e.key === "f" || e.key === "F") {
