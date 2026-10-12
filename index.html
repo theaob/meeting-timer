@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting Timer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-phase="idle">
+  <main class="app">
+    <header class="bar">
+      <h1>Meeting Timer</h1>
+      <div class="bar-actions">
+        <button id="mute" class="icon" type="button" aria-pressed="false" title="Mute sounds (M)">🔊</button>
+        <button id="fullscreen" class="icon" type="button" title="Full screen (F)">⛶</button>
+      </div>
+    </header>
+
+    <section class="clock" aria-live="off">
+      <div id="label" class="label">Ready</div>
+      <div id="time" class="time">15:00</div>
+      <div class="progress" aria-hidden="true"><div id="progress-fill"></div></div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+    </section>
+
+    <section class="controls">
+      <button id="start" class="primary" type="button">Start</button>
+      <button id="plus" type="button" title="Add one minute">+1 min</button>
+      <button id="reset" type="button" title="Reset (R)">Reset</button>
+    </section>
+
+    <section class="setup" id="setup">
+      <div class="presets" role="group" aria-label="Meeting length">
+        <button type="button" class="preset" data-minutes="15" data-name="Daily standup">Daily · 15</button>
+        <button type="button" class="preset" data-minutes="30" data-name="Meeting">30 min</button>
+        <button type="button" class="preset" data-minutes="45" data-name="Meeting">45 min</button>
+        <button type="button" class="preset" data-minutes="60" data-name="Meeting">60 min</button>
+      </div>
+      <div class="fields">
+        <label>Length (minutes)
+          <input id="minutes" type="number" min="1" max="600" step="1" value="15" inputmode="numeric">
+        </label>
+        <label>Remind at (minutes left)
+          <input id="reminders" type="text" value="5, 1" placeholder="5, 1" inputmode="decimal">
+        </label>
+        <label class="check">
+          <input id="overtime-beep" type="checkbox" checked>
+          Beep every minute in overtime
+        </label>
+        <button id="test-sound" type="button" class="link">Test sound</button>
+      </div>
+    </section>
+
+    <footer class="hint">Space start/pause · R reset · F full screen · M mute</footer>
+  </main>
+
+  <script src="timer-core.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
