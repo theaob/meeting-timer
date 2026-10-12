@@ -127,17 +127,10 @@
     return Math.max(step, Math.floor(share / step) * step);
   }
 
-  function parseNames(text) {
-    return String(text)
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
 
   return {
     MINUTE,
     splitSpeakerTime,
-    parseNames,
     createTimer,
     isRunning,
     elapsed,

@@ -93,10 +93,6 @@ test("splitSpeakerTime shares the time before wrap-up evenly", () => {
   assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 0), 0);
 });
 
-test("parseNames accepts one name per line or commas", () => {
-  assert.deepEqual(T.parseNames("Ayse\n Bora \n\nCan, Deniz"), ["Ayse", "Bora", "Can", "Deniz"]);
-  assert.deepEqual(T.parseNames("  "), []);
-});
 
 test("a speaker turn warns 15 seconds before it ends", () => {
   const t = T.createTimer(2 * MIN, [0.25]);

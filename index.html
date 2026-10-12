@@ -55,19 +55,16 @@
       <div class="speakers">
         <label class="check">
           <input id="use-speakers" type="checkbox" checked>
-          Speaker turns
+          Time each person
         </label>
         <div id="speaker-fields" class="fields">
-          <label class="grow">Speakers (one per line)
-            <textarea id="speakers" rows="4" placeholder="Ayşe&#10;Bora&#10;Can"></textarea>
+          <label>People
+            <input id="people" type="number" min="1" max="50" step="1" value="5" inputmode="numeric">
           </label>
-          <div class="speaker-side">
-            <label>Per speaker (minutes)
-              <input id="per-speaker" type="number" min="0.25" max="60" step="0.25" placeholder="auto" inputmode="decimal">
-            </label>
-            <div id="per-speaker-hint" class="hint-inline"></div>
-            <button id="shuffle" type="button">Shuffle order</button>
-          </div>
+          <label>Per person (minutes)
+            <input id="per-speaker" type="number" min="0.25" max="60" step="0.25" placeholder="auto" inputmode="decimal">
+          </label>
+          <div id="per-speaker-hint" class="hint-inline"></div>
         </div>
       </div>
 

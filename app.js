@@ -22,10 +22,9 @@
     reminders: $("reminders"),
     useSpeakers: $("use-speakers"),
     speakerFields: $("speaker-fields"),
-    speakers: $("speakers"),
+    people: $("people"),
     perSpeaker: $("per-speaker"),
     perSpeakerHint: $("per-speaker-hint"),
-    shuffle: $("shuffle"),
     voice: $("voice"),
     overtimeBeep: $("overtime-beep"),
     mute: $("mute"),
@@ -41,7 +40,7 @@
   let meetingName = "Meeting";
   let wrapUpMs = 0;
   let stage = "open"; // "speakers" | "wrapup" | "open" (no speaker turns)
-  let speakers = []; // { name, status: pending|current|done|skipped, ms, over }
+  let speakers = []; // { name, status: pending|current|done|skipped, ms, over }, named "1", "2", ...
   let current = -1;
   let turn = null; // timer for the current speaker
   let lastOvertimeMinute = 0;
@@ -147,7 +146,7 @@
       wrapUp: 2,
       reminders: "5, 1",
       useSpeakers: true,
-      speakers: "",
+      people: 5,
       perSpeaker: "",
       voice: true,
       overtimeBeep: true,
@@ -175,7 +174,7 @@
     settings.wrapUp = Math.max(0, Number(els.wrapup.value) || 0);
     settings.reminders = els.reminders.value;
     settings.useSpeakers = els.useSpeakers.checked;
-    settings.speakers = els.speakers.value;
+    settings.people = Math.min(50, Math.max(1, Math.round(Number(els.people.value) || 1)));
     settings.perSpeaker = els.perSpeaker.value;
     settings.voice = els.voice.checked;
     settings.overtimeBeep = els.overtimeBeep.checked;
@@ -187,7 +186,7 @@
     els.wrapup.value = settings.wrapUp;
     els.reminders.value = settings.reminders;
     els.useSpeakers.checked = settings.useSpeakers;
-    els.speakers.value = settings.speakers;
+    els.people.value = settings.people;
     els.perSpeaker.value = settings.perSpeaker;
     els.voice.checked = settings.voice;
     els.overtimeBeep.checked = settings.overtimeBeep;
@@ -200,15 +199,13 @@
       b.setAttribute("aria-pressed", String(Number(b.dataset.minutes) === Number(settings.minutes)));
     });
     els.speakerFields.hidden = !settings.useSpeakers;
-    const count = T.parseNames(settings.speakers).length;
-    if (!count) {
-      els.perSpeakerHint.textContent = "Add names to time each speaker";
-    } else if (settings.perSpeaker) {
+    const count = settings.people;
+    if (settings.perSpeaker) {
       const total = count * Number(settings.perSpeaker);
-      els.perSpeakerHint.textContent = `${count} speakers · ${formatMinutes(total)} in total`;
+      els.perSpeakerHint.textContent = `${formatMinutes(total)} in total`;
     } else {
       const ms = T.splitSpeakerTime(settings.minutes * T.MINUTE, settings.wrapUp * T.MINUTE, count);
-      els.perSpeakerHint.textContent = `${count} speakers · auto ${T.format(ms)} each`;
+      els.perSpeakerHint.textContent = `auto: ${T.format(ms)} each`;
     }
   }
 
@@ -237,8 +234,8 @@
     lastOvertimeMinute = 0;
     setStatus("");
 
-    const names = settings.useSpeakers ? T.parseNames(settings.speakers) : [];
-    speakers = names.map((name) => ({ name, status: "pending", ms: 0, over: false }));
+    const count = settings.useSpeakers ? settings.people : 0;
+    speakers = Array.from({ length: count }, (_, i) => ({ name: String(i + 1), status: "pending", ms: 0, over: false }));
     current = -1;
     turn = null;
     stage = speakers.length ? "speakers" : "open";
@@ -289,7 +286,7 @@
     if (T.isRunning(timer)) T.start(turn, now);
     if (!(opts && opts.quiet)) {
       sounds.handover();
-      say(s.name, 400);
+      say(current === speakers.length - 1 ? "Last speaker" : "Next speaker", 400);
       setStatus("");
     }
     render();
@@ -338,7 +335,7 @@
     }
     if (turn) {
       T.addTime(turn, T.MINUTE, now);
-      setStatus(`+1 minute for ${speakers[current].name}`);
+      setStatus(`+1 minute for speaker ${speakers[current].name}`);
     } else {
       T.addTime(timer, T.MINUTE, now);
       if (T.remaining(timer, now) > 0) lastOvertimeMinute = 0;
@@ -377,7 +374,7 @@
       setStatus("15 seconds left");
     } else if (ev.type === "end") {
       sounds.speakerEnd();
-      setStatus(`${name}, your time is up`);
+      setStatus(`Speaker ${name}, your time is up`);
       flash();
     }
   }
@@ -458,7 +455,7 @@
       const s = speakers[current];
       shown = T.remaining(turn, now);
       pct = (T.elapsed(turn, now) / turn.durationMs) * 100;
-      label = `${s.name} · ${current + 1} of ${speakers.length}`;
+      label = `Speaker ${s.name} of ${speakers.length}`;
       body.dataset.phase = meetingPhase === "over" ? "over" : T.phase(turn, now);
       els.meetingLine.textContent = `${meetingName} · ${T.format(meetingLeft)} ${meetingLeft < 0 ? "over" : "left"}`;
     } else {
@@ -476,7 +473,7 @@
     els.next.hidden = stage !== "speakers";
     els.next.textContent = current === speakers.length - 1 ? "Finish turns" : "Next speaker";
     els.plus.title = turn ? "Give the current speaker one more minute" : "Add one minute to the meeting";
-    document.title = `${T.format(shown)} · ${turn ? speakers[current].name : meetingName}`;
+    document.title = `${T.format(shown)} · ${turn ? `Speaker ${speakers[current].name}` : meetingName}`;
     renderQueue(now);
   }
 
@@ -485,7 +482,7 @@
       const li = document.createElement("li");
       li.className = s.status + (s.over ? " over" : "");
       const name = document.createElement("span");
-      name.textContent = s.name;
+      name.textContent = `#${s.name}`;
       li.append(name);
       if (s.status === "done") {
         const t = document.createElement("span");
@@ -558,18 +555,9 @@
     renderSetup();
     render();
   });
-  [els.wrapup, els.speakers, els.perSpeaker].forEach((el) => el.addEventListener("input", onFormChange));
+  [els.wrapup, els.people, els.perSpeaker].forEach((el) => el.addEventListener("input", onFormChange));
   [els.reminders, els.useSpeakers, els.voice, els.overtimeBeep].forEach((el) => el.addEventListener("change", onFormChange));
 
-  els.shuffle.addEventListener("click", () => {
-    const names = T.parseNames(els.speakers.value);
-    for (let i = names.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [names[i], names[j]] = [names[j], names[i]];
-    }
-    els.speakers.value = names.join("\n");
-    onFormChange();
-  });
 
   els.mute.addEventListener("click", toggleMute);
   els.testSound.addEventListener("click", () => {
