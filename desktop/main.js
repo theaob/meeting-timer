@@ -41,12 +41,13 @@ ipcMain.handle("set-compact", (_event, on) => {
   if (!win) return;
   if (on) {
     normalBounds = win.getBounds();
-    // "screen-saver" keeps it above full-screen apps such as slide shows.
+    // Top-right corner. "screen-saver" keeps it above full-screen apps such
+    // as slide shows.
     win.setAlwaysOnTop(true, "screen-saver");
     const { workArea } = screen.getDisplayMatching(normalBounds);
     win.setBounds({
       x: workArea.x + workArea.width - COMPACT.width - MARGIN,
-      y: workArea.y + workArea.height - COMPACT.height - MARGIN,
+      y: workArea.y + MARGIN,
       ...COMPACT,
     });
   } else {

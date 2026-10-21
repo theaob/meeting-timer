@@ -328,7 +328,12 @@
   function startOrPause() {
     ensureAudio(); // must happen inside a user gesture for browsers to allow sound
     const now = Date.now();
-    if (!timer) begin();
+    if (!timer) {
+      begin();
+      // In the Windows app a new meeting goes straight to the small
+      // always-on-top window, so it stays visible over everything else.
+      if (desktop && !compact) setCompact(true);
+    }
     if (T.isRunning(timer)) {
       T.pause(timer, now);
       if (turn) T.pause(turn, now);

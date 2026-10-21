@@ -67,9 +67,10 @@ you should see the timer, or the whole screen if everyone should.
 
 `desktop/` wraps the same page in a small Electron app for Windows. It
 builds a single portable `MeetingTimer-<version>.exe` that needs no install.
-In the app, **⧉** (or `P`) shrinks the window into a compact timer in the
-bottom-right corner that stays above every other window, including
-full-screen slide shows; **⤢** brings it back. The countdown and alerts keep
+In the app, pressing **Start** shrinks the window into a compact timer in
+the top-right corner that stays above every other window, including
+full-screen slide shows; **⤢** brings it back, and **⧉** (or `P`) shrinks it
+again. The countdown and alerts keep
 running while the window is minimised or covered.
 
 The **Windows app** workflow builds the `.exe` on every push and pull
