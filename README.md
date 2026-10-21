@@ -58,7 +58,8 @@ Chrome and Edge it floats above every other window, so it stays visible
 while you share your screen or present. Other browsers open it as a normal
 small popup that can end up behind other windows. Close it, or press
 **Bring it back**, to return the clock to the main page. Phones don't show
-the button. Reset is hidden in the small window to save room; `R` still works.
+the button. Reset and +1 min are hidden in the small window to keep it minimal; `R`
+still resets.
 
 When sharing on a call, share a single window (your slides or app) if only
 you should see the timer, or the whole screen if everyone should.

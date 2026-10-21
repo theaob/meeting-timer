@@ -180,8 +180,10 @@ body.popout .queue { display: none; }
 body.popout .controls { gap: 6px; padding: 6px 8px 8px; flex-wrap: nowrap; }
 body.popout .controls button,
 body.popout .controls #next { order: 0; flex-basis: auto; min-width: 0; padding: 5px 9px; font-size: 0.9rem; white-space: nowrap; }
-/* Too little room for Reset in the small window; R still works. */
-body.popout .controls #reset { display: none; }
+/* The small window keeps only the essentials: no Reset (R still works)
+   and no +1 min. */
+body.popout .controls #reset,
+body.popout .controls #plus { display: none; }
 @media (min-height: 340px) {
   body.popout .queue { display: flex; }
   body.popout .queue li { padding: 2px 8px; font-size: 0.8rem; }
