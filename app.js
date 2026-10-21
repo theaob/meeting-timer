@@ -25,6 +25,7 @@
     people: $("people"),
     perSpeaker: $("per-speaker"),
     perSpeakerHint: $("per-speaker-hint"),
+    wrapupLabel: $("wrapup-label"),
     voice: $("voice"),
     overtimeBeep: $("overtime-beep"),
     mute: $("mute"),
@@ -45,6 +46,7 @@
   let timer = null;
   let meetingName = "Meeting";
   let wrapUpMs = 0;
+  let perSpeakerMs = 0;
   let stage = "open"; // "speakers" | "wrapup" | "open" (no speaker turns)
   let speakers = []; // { name, status: pending|current|done|skipped, ms, over }, named "1", "2", ...
   let current = -1;
@@ -266,14 +268,27 @@
       b.setAttribute("aria-pressed", String(Number(b.dataset.minutes) === Number(settings.minutes)));
     });
     els.speakerFields.hidden = !settings.useSpeakers;
-    const count = settings.people;
-    if (settings.perSpeaker) {
-      const total = count * Number(settings.perSpeaker);
-      els.perSpeakerHint.textContent = `${formatMinutes(total)} in total`;
+    // With speaker turns, wrap-up is a time slot at the end, and it starts
+    // whenever the turns run out.
+    els.wrapupLabel.textContent = settings.useSpeakers ? "Wrap-up time (minutes)" : '"Wrapping up" at (minutes left)';
+    if (!settings.useSpeakers) return;
+    const plan = currentPlan();
+    const each = T.format(plan.perSpeakerMs);
+    if (!plan.fits) {
+      els.perSpeakerHint.textContent = `${settings.people} × ${each} = ${T.format(plan.turnsMs)}, longer than the meeting. No time left for wrap-up.`;
     } else {
-      const ms = T.splitSpeakerTime(settings.minutes * T.MINUTE, settings.wrapUp * T.MINUTE, count);
-      els.perSpeakerHint.textContent = `auto: ${T.format(ms)} each`;
+      els.perSpeakerHint.textContent = `${settings.people} × ${each} each · wrap-up starts with ${T.format(plan.wrapUpStartMs)} left`;
     }
+  }
+
+  function currentPlan() {
+    const fixed = Number(settings.perSpeaker);
+    return T.planTurns(
+      settings.minutes * T.MINUTE,
+      Math.round(settings.wrapUp * T.MINUTE),
+      settings.people,
+      fixed > 0 ? Math.round(fixed * T.MINUTE) : 0
+    );
   }
 
   function renderMute() {
@@ -282,18 +297,20 @@
     els.mute.title = settings.muted ? "Unmute sounds (M)" : "Mute sounds (M)";
   }
 
-  function speakerMs() {
-    const fixed = Number(settings.perSpeaker);
-    if (fixed > 0) return Math.round(fixed * T.MINUTE);
-    return T.splitSpeakerTime(settings.minutes * T.MINUTE, wrapUpMs, speakers.length);
-  }
-
   // ---------- Timer control ----------
 
   function begin() {
     readForm();
     const durationMs = settings.minutes * T.MINUTE;
-    wrapUpMs = settings.wrapUp > 0 && settings.wrapUp * T.MINUTE < durationMs ? Math.round(settings.wrapUp * T.MINUTE) : 0;
+    const count = settings.useSpeakers ? settings.people : 0;
+    if (count) {
+      // Wrap-up starts as soon as the planned turns run out.
+      const plan = currentPlan();
+      perSpeakerMs = plan.perSpeakerMs;
+      wrapUpMs = plan.wrapUpStartMs;
+    } else {
+      wrapUpMs = settings.wrapUp > 0 && settings.wrapUp * T.MINUTE < durationMs ? Math.round(settings.wrapUp * T.MINUTE) : 0;
+    }
     const reminderMinutes = T.parseReminderList(settings.reminders);
     if (wrapUpMs) reminderMinutes.push(wrapUpMs / T.MINUTE);
     timer = T.createTimer(durationMs, reminderMinutes);
@@ -301,7 +318,6 @@
     lastOvertimeMinute = 0;
     setStatus("");
 
-    const count = settings.useSpeakers ? settings.people : 0;
     speakers = Array.from({ length: count }, (_, i) => ({ name: String(i + 1), status: "pending", ms: 0, over: false }));
     current = -1;
     turn = null;
@@ -349,7 +365,7 @@
     }
     const s = speakers[current];
     s.status = "current";
-    turn = T.createTimer(speakerMs(), [SPEAKER_WARNING_MIN]);
+    turn = T.createTimer(perSpeakerMs, [SPEAKER_WARNING_MIN]);
     if (T.isRunning(timer)) T.start(turn, now);
     if (!(opts && opts.quiet)) {
       sounds.handover();

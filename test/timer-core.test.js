@@ -83,14 +83,31 @@ test("parseReminderList accepts commas and spaces", () => {
   assert.deepEqual(T.parseReminderList(""), []);
 });
 
-test("splitSpeakerTime shares the time before wrap-up evenly", () => {
-  // 15 min daily, 2 min wrap-up, 6 people -> 13 min / 6 = 2:10, rounded down to 2:00
-  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 6), 2 * MIN);
-  // 15 min, 2 min wrap-up, 4 people -> 3:15
-  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 4), 3.25 * MIN);
+test("splitSpeakerTime shares the time before wrap-up evenly, in whole seconds", () => {
+  // 15 min daily, 2 min wrap-up: 13 min split across the team
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 10), 78_000); // 1:18
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 9), 86_000); // 1:26 (86.67 rounded down)
+  assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 8), 97_000); // 1:37 (97.5 rounded down)
   // never below 15 seconds, and 0 with nobody
   assert.equal(T.splitSpeakerTime(1 * MIN, 0, 100), 15_000);
   assert.equal(T.splitSpeakerTime(15 * MIN, 2 * MIN, 0), 0);
+});
+
+test("planTurns puts wrap-up right after the last speaker", () => {
+  // 10 people: 10 x 1:18 = 13:00, so wrap-up starts with 2:00 left
+  assert.deepEqual(T.planTurns(15 * MIN, 2 * MIN, 10, 0), {
+    perSpeakerMs: 78_000, turnsMs: 13 * MIN, wrapUpStartMs: 2 * MIN, fits: true,
+  });
+  // 9 people: 9 x 1:26 = 12:54, so wrap-up starts with 2:06 left
+  assert.equal(T.planTurns(15 * MIN, 2 * MIN, 9, 0).wrapUpStartMs, 126_000);
+  // fixed 1:30 each for 8 people: 12:00 of turns, 3:00 left for wrap-up
+  assert.equal(T.planTurns(15 * MIN, 2 * MIN, 8, 90_000).wrapUpStartMs, 3 * MIN);
+});
+
+test("planTurns reports when fixed turns don't fit the meeting", () => {
+  const plan = T.planTurns(15 * MIN, 2 * MIN, 10, 100_000); // 10 x 1:40 = 16:40
+  assert.equal(plan.fits, false);
+  assert.equal(plan.wrapUpStartMs, 0);
 });
 
 
