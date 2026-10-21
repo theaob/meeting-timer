@@ -4,7 +4,7 @@
   const T = window.TimerCore;
   const $ = (id) => document.getElementById(id);
   const STORAGE_KEY = "meeting-timer-settings";
-  const SPEAKER_WARNING_MIN = 0.25; // beep 15 seconds before a turn ends
+  const FINAL_MS = 20 * 1000; // last 20 seconds of a turn: red, flashing, beep
 
   const els = {
     time: $("time"),
@@ -370,7 +370,8 @@
     }
     const s = speakers[current];
     s.status = "current";
-    turn = T.createTimer(perSpeakerMs, [SPEAKER_WARNING_MIN]);
+    // Two cues per turn: "Wrap up" halfway through, then the final 20 seconds.
+    turn = T.createTimer(perSpeakerMs, [perSpeakerMs / 2 / T.MINUTE, FINAL_MS / T.MINUTE]);
     if (T.isRunning(timer)) T.start(turn, now);
     if (!(opts && opts.quiet)) {
       sounds.handover();
@@ -458,9 +459,13 @@
 
   function handleTurnEvent(ev) {
     const name = speakers[current] ? speakers[current].name : "";
-    if (ev.type === "reminder") {
+    if (ev.type === "reminder" && ev.msLeft === FINAL_MS) {
       sounds.speakerWarning();
-      setStatus("15 seconds left");
+      setStatus("20 seconds left");
+    } else if (ev.type === "reminder") {
+      // Halfway through the turn.
+      sounds.handover();
+      setStatus("Wrap up");
     } else if (ev.type === "end") {
       sounds.speakerEnd();
       setStatus(`Speaker ${name}, your time is up`);
@@ -523,7 +528,7 @@
     const body = document.body;
     if (!timer) {
       body.dataset.phase = "idle";
-      body.classList.remove("active", "running", "wrapup", "meeting-over");
+      body.classList.remove("active", "running", "wrapup", "meeting-over", "final");
       els.time.textContent = T.format(Number(els.minutes.value || settings.minutes) * T.MINUTE);
       els.label.textContent = settings.name || "Meeting";
       els.meetingLine.textContent = "";
@@ -562,6 +567,8 @@
     if (!running) label += " · paused";
     els.label.textContent = label;
     els.time.textContent = T.format(shown);
+    // The big clock flashes through its last 20 seconds.
+    body.classList.toggle("final", running && shown > 0 && shown <= FINAL_MS);
     els.fill.style.width = `${Math.min(100, pct)}%`;
     els.start.textContent = running ? "Pause" : "Resume";
     els.next.hidden = stage !== "speakers";

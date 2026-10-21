@@ -24,8 +24,10 @@ everyone sees the clock and hears the alerts.
   time or an even share of the meeting after setting aside the wrap-up time.
   As soon as you enter the number of people, the setup shows each person's
   time and when wrap-up will start (for a 15 minute daily with a 2 minute
-  wrap-up: 10 people get 1:18 each, 9 get 1:26, 8 get 1:37). A short beep plays
-  15 seconds before a turn ends and a chime when it's up; "Next speaker" is
+  wrap-up: 10 people get 1:18 each, 9 get 1:26, 8 get 1:37). Halfway through
+  a turn a soft chime plays and "Wrap up" is shown. In the last 20 seconds
+  the time turns red and flashes, with a short beep, and a chime plays when
+  the turn is up; "Next speaker" is
   announced at handover. A row of numbered chips shows how long each turn
   took, in red if it went over.
 - **Wrapping up**: with speaker turns, wrap-up starts when the planned turns
