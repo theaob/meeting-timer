@@ -4,7 +4,7 @@
   const T = window.TimerCore;
   const $ = (id) => document.getElementById(id);
   const STORAGE_KEY = "meeting-timer-settings";
-  const SPEAKER_WARNING_MIN = 0.25; // beep 15 seconds before a turn ends
+  const FINAL_MS = 20 * 1000; // last 20 seconds of a turn: red, flashing, beep
 
   const els = {
     time: $("time"),
@@ -25,6 +25,7 @@
     people: $("people"),
     perSpeaker: $("per-speaker"),
     perSpeakerHint: $("per-speaker-hint"),
+    wrapupLabel: $("wrapup-label"),
     voice: $("voice"),
     overtimeBeep: $("overtime-beep"),
     mute: $("mute"),
@@ -45,6 +46,7 @@
   let timer = null;
   let meetingName = "Meeting";
   let wrapUpMs = 0;
+  let perSpeakerMs = 0;
   let stage = "open"; // "speakers" | "wrapup" | "open" (no speaker turns)
   let speakers = []; // { name, status: pending|current|done|skipped, ms, over }, named "1", "2", ...
   let current = -1;
@@ -266,14 +268,27 @@
       b.setAttribute("aria-pressed", String(Number(b.dataset.minutes) === Number(settings.minutes)));
     });
     els.speakerFields.hidden = !settings.useSpeakers;
-    const count = settings.people;
-    if (settings.perSpeaker) {
-      const total = count * Number(settings.perSpeaker);
-      els.perSpeakerHint.textContent = `${formatMinutes(total)} in total`;
+    // With speaker turns, wrap-up is a time slot at the end, and it starts
+    // whenever the turns run out.
+    els.wrapupLabel.textContent = settings.useSpeakers ? "Wrap-up time (minutes)" : '"Wrapping up" at (minutes left)';
+    if (!settings.useSpeakers) return;
+    const plan = currentPlan();
+    const each = T.format(plan.perSpeakerMs);
+    if (!plan.fits) {
+      els.perSpeakerHint.textContent = `${settings.people} × ${each} = ${T.format(plan.turnsMs)}, longer than the meeting. No time left for wrap-up.`;
     } else {
-      const ms = T.splitSpeakerTime(settings.minutes * T.MINUTE, settings.wrapUp * T.MINUTE, count);
-      els.perSpeakerHint.textContent = `auto: ${T.format(ms)} each`;
+      els.perSpeakerHint.textContent = `${settings.people} × ${each} each · wrap-up starts with ${T.format(plan.wrapUpStartMs)} left`;
     }
+  }
+
+  function currentPlan() {
+    const fixed = Number(settings.perSpeaker);
+    return T.planTurns(
+      settings.minutes * T.MINUTE,
+      Math.round(settings.wrapUp * T.MINUTE),
+      settings.people,
+      fixed > 0 ? Math.round(fixed * T.MINUTE) : 0
+    );
   }
 
   function renderMute() {
@@ -282,18 +297,20 @@
     els.mute.title = settings.muted ? "Unmute sounds (M)" : "Mute sounds (M)";
   }
 
-  function speakerMs() {
-    const fixed = Number(settings.perSpeaker);
-    if (fixed > 0) return Math.round(fixed * T.MINUTE);
-    return T.splitSpeakerTime(settings.minutes * T.MINUTE, wrapUpMs, speakers.length);
-  }
-
   // ---------- Timer control ----------
 
   function begin() {
     readForm();
     const durationMs = settings.minutes * T.MINUTE;
-    wrapUpMs = settings.wrapUp > 0 && settings.wrapUp * T.MINUTE < durationMs ? Math.round(settings.wrapUp * T.MINUTE) : 0;
+    const count = settings.useSpeakers ? settings.people : 0;
+    if (count) {
+      // Wrap-up starts as soon as the planned turns run out.
+      const plan = currentPlan();
+      perSpeakerMs = plan.perSpeakerMs;
+      wrapUpMs = plan.wrapUpStartMs;
+    } else {
+      wrapUpMs = settings.wrapUp > 0 && settings.wrapUp * T.MINUTE < durationMs ? Math.round(settings.wrapUp * T.MINUTE) : 0;
+    }
     const reminderMinutes = T.parseReminderList(settings.reminders);
     if (wrapUpMs) reminderMinutes.push(wrapUpMs / T.MINUTE);
     timer = T.createTimer(durationMs, reminderMinutes);
@@ -301,7 +318,6 @@
     lastOvertimeMinute = 0;
     setStatus("");
 
-    const count = settings.useSpeakers ? settings.people : 0;
     speakers = Array.from({ length: count }, (_, i) => ({ name: String(i + 1), status: "pending", ms: 0, over: false }));
     current = -1;
     turn = null;
@@ -312,7 +328,12 @@
   function startOrPause() {
     ensureAudio(); // must happen inside a user gesture for browsers to allow sound
     const now = Date.now();
-    if (!timer) begin();
+    if (!timer) {
+      begin();
+      // In the Windows app a new meeting goes straight to the small
+      // always-on-top window, so it stays visible over everything else.
+      if (desktop && !compact) setCompact(true);
+    }
     if (T.isRunning(timer)) {
       T.pause(timer, now);
       if (turn) T.pause(turn, now);
@@ -349,7 +370,8 @@
     }
     const s = speakers[current];
     s.status = "current";
-    turn = T.createTimer(speakerMs(), [SPEAKER_WARNING_MIN]);
+    // Two cues per turn: "Wrap up" halfway through, then the final 20 seconds.
+    turn = T.createTimer(perSpeakerMs, [perSpeakerMs / 2 / T.MINUTE, FINAL_MS / T.MINUTE]);
     if (T.isRunning(timer)) T.start(turn, now);
     if (!(opts && opts.quiet)) {
       sounds.handover();
@@ -437,9 +459,13 @@
 
   function handleTurnEvent(ev) {
     const name = speakers[current] ? speakers[current].name : "";
-    if (ev.type === "reminder") {
+    if (ev.type === "reminder" && ev.msLeft === FINAL_MS) {
       sounds.speakerWarning();
-      setStatus("15 seconds left");
+      setStatus("20 seconds left");
+    } else if (ev.type === "reminder") {
+      // Halfway through the turn.
+      sounds.handover();
+      setStatus("Wrap up");
     } else if (ev.type === "end") {
       sounds.speakerEnd();
       setStatus(`Speaker ${name}, your time is up`);
@@ -502,7 +528,7 @@
     const body = document.body;
     if (!timer) {
       body.dataset.phase = "idle";
-      body.classList.remove("active", "running", "wrapup", "meeting-over");
+      body.classList.remove("active", "running", "wrapup", "meeting-over", "final");
       els.time.textContent = T.format(Number(els.minutes.value || settings.minutes) * T.MINUTE);
       els.label.textContent = settings.name || "Meeting";
       els.meetingLine.textContent = "";
@@ -541,6 +567,8 @@
     if (!running) label += " · paused";
     els.label.textContent = label;
     els.time.textContent = T.format(shown);
+    // The big clock flashes through its last 20 seconds.
+    body.classList.toggle("final", running && shown > 0 && shown <= FINAL_MS);
     els.fill.style.width = `${Math.min(100, pct)}%`;
     els.start.textContent = running ? "Pause" : "Resume";
     els.next.hidden = stage !== "speakers";

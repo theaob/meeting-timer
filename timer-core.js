@@ -119,18 +119,35 @@
   }
 
   // Even share of the meeting for each speaker, leaving the wrap-up time
-  // free. Rounded down to 15 seconds so the numbers read cleanly.
+  // free. Whole seconds (rounded down), and never under 15 seconds.
   function splitSpeakerTime(durationMs, wrapUpMs, speakerCount) {
     if (speakerCount <= 0) return 0;
-    const step = 15 * 1000;
     const share = (durationMs - Math.max(0, wrapUpMs)) / speakerCount;
-    return Math.max(step, Math.floor(share / step) * step);
+    return Math.max(15 * 1000, Math.floor(share / 1000) * 1000);
+  }
+
+  // Plans a meeting with speaker turns: how long each person gets and how
+  // much time is left when everyone has spoken, which is when wrap-up
+  // starts. With a fixed per-person time the turns may not fit, in which
+  // case there is no time left for wrap-up.
+  function planTurns(durationMs, wrapUpMs, speakerCount, fixedPerSpeakerMs) {
+    const perSpeakerMs = fixedPerSpeakerMs > 0
+      ? fixedPerSpeakerMs
+      : splitSpeakerTime(durationMs, wrapUpMs, speakerCount);
+    const turnsMs = perSpeakerMs * speakerCount;
+    return {
+      perSpeakerMs,
+      turnsMs,
+      wrapUpStartMs: Math.max(0, durationMs - turnsMs),
+      fits: turnsMs < durationMs,
+    };
   }
 
 
   return {
     MINUTE,
     splitSpeakerTime,
+    planTurns,
     createTimer,
     isRunning,
     elapsed,

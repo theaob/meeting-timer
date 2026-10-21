@@ -21,14 +21,20 @@ everyone sees the clock and hears the alerts.
 ## What it does
 
 - **Speaker turns**: each person gets their own countdown, either a fixed
-  time or an even share of the meeting before wrap-up. A short beep plays
-  15 seconds before a turn ends and a chime when it's up; "Next speaker" is
+  time or an even share of the meeting after setting aside the wrap-up time.
+  As soon as you enter the number of people, the setup shows each person's
+  time and when wrap-up will start (for a 15 minute daily with a 2 minute
+  wrap-up: 10 people get 1:18 each, 9 get 1:26, 8 get 1:37). Halfway through
+  a turn a soft chime plays and "Wrap up" is shown. In the last 20 seconds
+  the time turns red and flashes, with a short beep, and a chime plays when
+  the turn is up; "Next speaker" is
   announced at handover. A row of numbered chips shows how long each turn
   took, in red if it went over.
-- **Wrapping up**: at a set time before the end (default 2 minutes for a
-  daily, 5 for longer meetings), or as soon as the last speaker finishes,
-  a distinct sound plays, "Wrapping up" is shown and spoken, and turns that
-  didn't happen are marked as skipped.
+- **Wrapping up**: with speaker turns, wrap-up starts when the planned turns
+  run out, or earlier if the last speaker finishes early. Without speaker
+  turns it starts at a set time before the end (default 5 minutes for longer
+  meetings). A distinct sound plays, "Wrapping up" is shown and spoken, and
+  turns that didn't happen are marked as skipped.
 - **Reminders**: at each reminder the timer plays a chime, flashes the screen
   and shows how much time is left. The final reminder chimes the most.
 - **Time's up**: a louder alarm plays and the clock turns red and keeps
@@ -54,7 +60,8 @@ Chrome and Edge it floats above every other window, so it stays visible
 while you share your screen or present. Other browsers open it as a normal
 small popup that can end up behind other windows. Close it, or press
 **Bring it back**, to return the clock to the main page. Phones don't show
-the button. Reset is hidden in the small window to save room; `R` still works.
+the button. Reset and +1 min are hidden in the small window to keep it minimal; `R`
+still resets.
 
 When sharing on a call, share a single window (your slides or app) if only
 you should see the timer, or the whole screen if everyone should.
@@ -63,9 +70,10 @@ you should see the timer, or the whole screen if everyone should.
 
 `desktop/` wraps the same page in a small Electron app for Windows. It
 builds a single portable `MeetingTimer-<version>.exe` that needs no install.
-In the app, **⧉** (or `P`) shrinks the window into a compact timer in the
-bottom-right corner that stays above every other window, including
-full-screen slide shows; **⤢** brings it back. The countdown and alerts keep
+In the app, pressing **Start** shrinks the window into a compact timer in
+the top-right corner that stays above every other window, including
+full-screen slide shows; **⤢** brings it back, and **⧉** (or `P`) shrinks it
+again. The countdown and alerts keep
 running while the window is minimised or covered.
 
 The **Windows app** workflow builds the `.exe` on every push and pull

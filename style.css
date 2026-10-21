@@ -6,7 +6,7 @@
   --accent: #3fb97a;
   --ok: #3fb97a;
   --warn: #f0b429;
-  --critical: #f2603b;
+  --critical: #ef3b3b;
   --over: #e5484d;
   --phase: var(--muted);
   color-scheme: dark;
@@ -86,6 +86,9 @@ button.link { background: none; border: none; color: var(--muted); text-decorati
   transition: color 0.4s;
 }
 body[data-phase="idle"] .time { color: var(--text); }
+/* Last 20 seconds: red and blinking. */
+body.final .time { color: var(--critical); transition: none; animation: blink 1s steps(1, end) infinite; }
+@keyframes blink { 50% { opacity: 0.25; } }
 .progress { width: min(100%, 720px); height: 10px; background: var(--panel); border-radius: 5px; overflow: hidden; }
 #progress-fill { height: 100%; width: 0; background: var(--phase); transition: width 0.3s linear, background-color 0.4s; }
 .status { min-height: 1.6em; font-size: clamp(1rem, 3vw, 1.5rem); font-weight: 600; color: var(--phase); }
@@ -180,8 +183,10 @@ body.popout .queue { display: none; }
 body.popout .controls { gap: 6px; padding: 6px 8px 8px; flex-wrap: nowrap; }
 body.popout .controls button,
 body.popout .controls #next { order: 0; flex-basis: auto; min-width: 0; padding: 5px 9px; font-size: 0.9rem; white-space: nowrap; }
-/* Too little room for Reset in the small window; R still works. */
-body.popout .controls #reset { display: none; }
+/* The small window keeps only the essentials: no Reset (R still works)
+   and no +1 min. */
+body.popout .controls #reset,
+body.popout .controls #plus { display: none; }
 @media (min-height: 340px) {
   body.popout .queue { display: flex; }
   body.popout .queue li { padding: 2px 8px; font-size: 0.8rem; }
